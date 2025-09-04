@@ -1,7 +1,8 @@
 import { en } from './en';
 import { fr } from './fr';
+import { de } from './de';
 
-export const locales = { en, fr };
+export const locales = { en, fr, de };
 
 export type Locale = keyof typeof locales;
 
