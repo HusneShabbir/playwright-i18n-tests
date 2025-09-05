@@ -1,27 +1,32 @@
-# Playwright Localization Testing Project
+# Playwright Localization Testing Project for RHDH
 
-This project demonstrates how to implement and test localization (i18n) in Playwright using TypeScript. It includes a structured approach to manage different language translations and automated tests to verify localized content.
+This project demonstrates how to implement and test localization (i18n) in Playwright using TypeScript. It includes a structured approach to manage different language translations and automated tests to verify localized content in the RHDH application, with special focus on ARIA compliance and UI component testing.
 
 ## Project Structure
 
 ```
 my-playwright-project/
-├── i18n/                   # Internationalization directory
+├── translations/          # Internationalization directory
 │   ├── en.ts              # English translations
 │   ├── fr.ts              # French translations
+│   ├── de.ts              # German translations
 │   └── index.ts           # Exports locale utilities
 ├── tests/
-│   └── locale.spec.ts     # Localization test specs
+│   └── rhdh.spec.ts       # RHDH application tests
 ├── playwright.config.js    # Playwright configuration
+├── e2e-i18n-guide.md      # E2E testing guide for i18n
 └── README.md              # Project documentation
 ```
 
 ## Features
 
-- Support for multiple languages (currently English and French)
+- Support for multiple languages (English, French, and German)
 - Environment-based language switching
 - Type-safe translation management
 - Automated testing of localized content
+- ARIA compliance testing
+- UI component accessibility testing
+- Comprehensive i18n testing guides
 
 ## Getting Started
 
@@ -44,29 +49,50 @@ my-playwright-project/
 
 ## Running Tests
 
-### Run tests in default language (English)
+The project includes a dedicated configuration for localization testing through the `localized-smoke-suite` project.
 
+### Running Tests with Localization
+
+#### Default Language (English)
 ```bash
-npx playwright test
+npx playwright test --project=localized-smoke-suite
 ```
 
-### Run tests in a specific language
-
+#### Specific Language
 ```bash
-TEST_LANG=fr npx playwright test
+TEST_LANG=fr npx playwright test --project=localized-smoke-suite
 ```
 
-### Run tests in all supported browsers
+### Running Specific Test Files
 
+#### Single Test File in Specific Language
 ```bash
-npx playwright test --project=all
+TEST_LANG=fr npx playwright test tests/locale.spec.ts --project=localized-smoke-suite
+TEST_LANG=fr npx playwright test tests/locale.spec.ts --project=chromium 
+TEST_LANG=fr npx playwright test tests/locale.spec.ts --project=firefox 
+TEST_LANG=fr npx playwright test tests/locale.spec.ts --project=webkit 
+```
+
+#### Running Specific Test Cases
+```bash
+# Run tests matching specific description in German
+TEST_LANG=de npx playwright test tests/rhdh.spec.ts --grep "should display correct language" --project=localized-smoke-suite
+```
+
+### Running in Different Browsers
+
+For cross-browser testing without localization:
+```bash
+npx playwright test --project=chromium
+npx playwright test --project=firefox
+npx playwright test --project=webkit
 ```
 
 ## Project Components
 
 ### 1. Internationalization (i18n)
 
-Located in the `i18n/` directory, this contains:
+Located in the `translations/` directory, this contains:
 
 - `en.ts`: English translations
 - `fr.ts`: French translations
@@ -88,10 +114,40 @@ export const en = {
 
 The `playwright.config.js` file includes:
 
-- Language configuration via environment variables
-- Browser configurations
+- Language configuration via environment variables (`TEST_LANG`)
+- Dedicated localization test project configuration
+- Browser-specific project configurations
 - Test execution settings
 - Reporter settings
+
+#### Project Configurations
+
+```javascript
+// Example from playwright.config.js
+projects: [
+  {
+    name: 'localized-smoke-suite',
+    testMatch: '**/tests/*.spec.ts',
+    use: {
+      ...devices['Desktop Chrome'],
+      locale: lang, // Uses TEST_LANG environment variable
+    },
+    retries: process.env.CI ? 2 : 0,
+  },
+  // Browser-specific projects
+  {
+    name: 'chromium',
+    use: { ...devices['Desktop Chrome'] },
+  },
+  // ... other browser configurations
+]
+```
+
+This configuration allows for:
+- Dedicated localization testing with Chrome
+- Flexible language switching via environment variables
+- Separate browser-specific testing when needed
+- Configurable retry attempts for CI environments
 
 Key configuration for localization:
 ```javascript
@@ -105,12 +161,10 @@ This configuration ensures that the browser's locale is automatically set accord
 
 ### 3. Test Implementation
 
-Tests are written in TypeScript and located in the `tests/` directory. The `locale.spec.ts` file demonstrates:
-
+Key implementation features:
 - Centralized language selection through `getCurrentLanguage()`
 - Clean test implementation using utility functions
 - Page object pattern implementation
-- Localized content verification
 
 The project provides utility functions in `i18n/index.ts` to handle language selection:
 - `getCurrentLanguage()`: Gets the current language from environment or falls back to 'en'
@@ -118,33 +172,59 @@ The project provides utility functions in `i18n/index.ts` to handle language sel
 
 ## Writing Tests
 
-Example of a localized test:
+Example of a localized test for RHDH:
 
 ```typescript
 import { test, expect } from '@playwright/test';
-import { getLocale, getCurrentLanguage } from '../i18n';
+import { getLocale, getCurrentLanguage } from '../translations';
 
 const lang = getCurrentLanguage();
 const t = getLocale();
 
-test.describe(`Localization Tests - ${lang}`, () => {
-  test('should display localized content', async ({ page }) => {
-    await page.goto('https://example.com');
-    await expect(page).toHaveTitle(t.title);
+test.describe(`RHDH Localization - ${lang}`, () => {
+  test(`should display correct language section ARIA content in ${lang}`, async ({ page }) => {
+    // Navigate to settings page
+    await page.goto('/settings');
+    
+    // Interact with UI elements
+    const enterButton = page.getByRole('button', { name: 'Enter' });
+    await expect(enterButton).toBeVisible();
+    await enterButton.click();
+    
+    await page.getByRole('button', { name: 'Hide' }).click();
+    
+    // Verify ARIA content structure
+    await expect(page.getByRole('list').first()).toMatchAriaSnapshot(`
+    - listitem:
+      - text: Language
+      - paragraph: Change the language
+    `);
+    
+    // Verify localized content
+    await expect(page.getByTestId('select').locator('p')).toContainText(t.rhdhLanguage);
+    await expect(page.getByTestId('select').locator('div')).toContainText(t.rhdhLanguage);
   });
 });
 ```
 
+This test demonstrates:
+- Navigation to the settings page
+- Role-based element selection
+- ARIA snapshot validation
+- Localized content verification
+- UI component interaction
+- Multiple selector strategies (role, test-id)
+
 ## Adding New Languages
 
-To add support for a new language, follow these detailed steps:
+The project currently supports English (en), French (fr), and German (de). To add support for additional languages, follow these steps:
 
-1. Create a new language file in `i18n/` directory (e.g., `de.ts` for German):
+1. Create a new language file in `i18n/` directory (e.g., `es.ts` for Spanish):
 ```typescript
-// i18n/de.ts
-export const de = {
-    "title": "Google",
-    "gmailHeading": "Sichere, intelligente und einfach zu bedienende E-Mail"
+// i18n/es.ts
+export const es = {
+    "rhdhLanguage": "Español",
+    // Add all other required RHDH translations
 };
 ```
 
@@ -152,38 +232,34 @@ export const de = {
 ```typescript
 import { en } from './en';
 import { fr } from './fr';
-import { de } from './de';  // Add import
+import { de } from './de';
+import { es } from './es';  // Add import
 
 export const locales = { 
     en, 
     fr,
-    de   // Add new language
+    de,
+    es   // Add new language
 };
 
+// No changes needed here - TypeScript will automatically update the Locale type
 export type Locale = keyof typeof locales;
-
-export const getCurrentLanguage = (): Locale => {
-    const lang = process.env.TEST_LANG || 'en';
-    return lang as Locale;
-};
-
-export const getLocale = (lang: Locale = getCurrentLanguage()) => {
-    return locales[lang] || locales.en;
-};
 ```
 
-3. Run tests with the new language:
+3. Run RHDH tests with the new language:
 ```bash
-TEST_LANG=de npx playwright test
+TEST_LANG=es npx playwright test rhdh.spec.ts
 ```
 
 4. Best Practices for Adding Languages:
-   - Always ensure all translation keys from the default language (en) exist in new language files
-   - Test the new language thoroughly before deploying
-   - Consider adding language-specific test cases if there are special formatting requirements
-   - Document any special characteristics or requirements for the new language
+   - Ensure all RHDH-specific translation keys are present in new language files
+   - Pay special attention to ARIA labels and accessibility text
+   - Test language switching functionality in the RHDH settings
+   - Verify correct rendering of language-specific characters
+   - Test both UI components and ARIA compliance
+   - Document any RTL (Right-to-Left) requirements if applicable
 
-The TypeScript type system will automatically include the new language code in the `Locale` type, ensuring type safety throughout your tests.
+The existing test infrastructure will automatically handle the new language through the TypeScript type system and the `getCurrentLanguage()` utility.
 
 ## Best Practices
 

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { getLocale, getCurrentLanguage } from '../i18n';
+import { getLocale, getCurrentLanguage } from '../translations';
 
 const lang = getCurrentLanguage();
 const t = getLocale();
