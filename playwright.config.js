@@ -35,8 +35,18 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
 
-  /* Configure projects for major browsers */
+  /* Configure projects for major browsers and localized tests */
   projects: [
+    {
+      name: 'localized-smoke-suite',
+      testMatch: '**/tests/*.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        locale: lang, // Use the language from environment variable
+      },
+      retries: process.env.CI ? 2 : 0,
+    },
+
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
@@ -80,4 +90,4 @@ export default defineConfig({
   //   reuseExistingServer: !process.env.CI,
   // },
 });
-
+ 
